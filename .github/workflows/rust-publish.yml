@@ -21,7 +21,7 @@ jobs:
     container: rust:latest
     steps:
       - uses: actions/checkout@v3
-      - uses: vichava/sandbox-actions/composite/rust/setup-cargo@develop
+      - uses: vichava/workflows/composite/rust/prepare-env@master
         with:
           directory: ${{ inputs.directory }}
           shipyard_ssh_key: ${{ secrets.SSH_KEY }}
@@ -38,7 +38,7 @@ jobs:
     container: rust:latest
     steps:
       - uses: actions/checkout@v3
-      - uses: vichava/sandbox-actions/composite/rust/setup-cargo@develop
+      - uses: vichava/workflows/composite/rust/prepare-env@master
         with:
           directory: ${{ inputs.directory }}
           shipyard_ssh_key: ${{ secrets.SSH_KEY }}
@@ -56,7 +56,7 @@ jobs:
     container: rust:latest
     steps:
       - uses: actions/checkout@v3
-      - uses: vichava/sandbox-actions/composite/rust/setup-cargo@develop
+      - uses: vichava/workflows/composite/rust/prepare-env@master
         with:
           directory: ${{ inputs.directory }}
           shipyard_ssh_key: ${{ secrets.SSH_KEY }}
