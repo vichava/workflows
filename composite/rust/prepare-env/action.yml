@@ -60,9 +60,11 @@ runs:
         echo "Using new version: $project_version"
         echo "PROJECT_VERSION=${project_version}" >> $GITHUB_ENV
         
-        sed -i '0,/version = ".*"/s//version = "$project_version"/' Cargo.toml
+        sed -i "0,/version = \".*\"/s//version = \"$project_version\"/"  Cargo.toml
         
         echo "" >> Cargo.toml
         echo "[package.metadata.shipyard]" >> Cargo.toml
         echo "rustdocs-disabled = true" >> Cargo.toml
+
+        echo "::debug::$(cat Cargo.toml)"
 
