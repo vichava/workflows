@@ -1,0 +1,78 @@
+on:
+  workflow_call:
+    inputs:
+      directory:
+        required: false
+        type: string
+        default: "."
+      test:
+        required: false
+        type: boolean
+        default: true
+      clippy:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    if: ${{ inputs.test }}
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: vichava/sandbox-actions/composite/rust/setup-cargo@develop
+        with:
+          directory: ${{ inputs.directory }}
+          shipyard_ssh_key: ${{ secrets.SSH_KEY }}
+          shipyard_known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          shipyard_cargo_config: ${{ secrets.CARGO_CONFIG }}
+          shipyard_token: ${{ secrets.SHIPYARD_TOKEN }}
+
+      - run: cargo test --all-features
+        shell: bash
+
+  clippy:
+    if: ${{ inputs.clippy }}
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: vichava/sandbox-actions/composite/rust/setup-cargo@develop
+        with:
+          directory: ${{ inputs.directory }}
+          shipyard_ssh_key: ${{ secrets.SSH_KEY }}
+          shipyard_known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          shipyard_cargo_config: ${{ secrets.CARGO_CONFIG }}
+          shipyard_token: ${{ secrets.SHIPYARD_TOKEN }}
+
+      - run: rustup component add clippy
+      - run: cargo clippy --all-features -- -Dwarnings
+
+  publish:
+    needs: [test, clippy]
+    if: ${{ always() && needs.test.result != 'failure' && needs.clippy.result != 'failure' }}
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: vichava/sandbox-actions/composite/rust/setup-cargo@develop
+        with:
+          directory: ${{ inputs.directory }}
+          shipyard_ssh_key: ${{ secrets.SSH_KEY }}
+          shipyard_known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          shipyard_cargo_config: ${{ secrets.CARGO_CONFIG }}
+          shipyard_token: ${{ secrets.SHIPYARD_TOKEN }}
+
+      - run: cargo publish -p $PROJECT_NAME --all-features --registry vichava --allow-dirty
+      - run: echo "::notice title=crate-version::$NEW_VERSION"
+      - run: |
+          echo "### crate info" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`toml" >> $GITHUB_STEP_SUMMARY
+          echo "$PROJECT_NAME = { version = \"$PROJECT_VERSION\", registry = \"vichava\" }" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$PROJECT_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

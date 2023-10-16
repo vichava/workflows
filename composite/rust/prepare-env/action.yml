@@ -1,0 +1,68 @@
+name: 'setup-cargo'
+description: 'setup cargo with private registry and versioning'
+
+inputs:
+  directory:
+    required: false
+    default: "."
+    description: "Directory to run commands in"
+  shipyard_ssh_key:
+    required: true
+    description: "SSH key for shipyard"
+  shipyard_known_hosts:
+    required: true
+    description: "Known hosts for shipyard"
+  shipyard_cargo_config:
+    required: true
+    description: "Cargo config for shipyard"
+  shipyard_token:
+    required: true
+    description: "Token for shipyard"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ inputs.shipyard_ssh_key }}
+        known_hosts: ${{ inputs.shipyard_known_hosts }}
+
+    - shell: bash
+      run: echo "${{ inputs.shipyard_cargo_config }}" >> $CARGO_HOME/config.toml
+
+    - shell: bash
+      run: cargo login --registry vichava ${{ inputs.shipyard_token }}
+
+    - shell: bash
+      run: |
+        cd ${{ inputs.directory }}
+        project_name=$(grep -E '^name' Cargo.toml | awk -F '= ' '{print $2}' | tr -d \")
+        echo "PROJECT_NAME=${project_name}" >> $GITHUB_ENV
+        
+        current_version=$(grep -E '^version' Cargo.toml | awk -F '= ' '{print $2}' | tr -d \")
+        
+        if [[ ${{ github.ref }} == "refs/heads/master" ]]; then
+          echo "Using current version: $current_version"
+          echo "PROJECT_VERSION=$current_version" >> $GITHUB_ENV
+          
+          echo "" >> Cargo.toml
+          echo "[package.metadata.shipyard]" >> Cargo.toml
+          echo "all-features = true" >> Cargo.toml
+        
+          exit 0
+        fi
+        
+        current_branch_raw=$(echo $GITHUB_REF | sed 's/refs\/heads\///' | sed 's/refs\/tags\///')
+        current_branch=$(echo $current_branch_raw | sed 's/\//-/g')
+        current_commit=$(echo $GITHUB_SHA | cut -c1-8)
+        
+        project_version="${current_version}+${current_branch}.${current_commit}"
+        echo "Using new version: $project_version"
+        echo "PROJECT_VERSION=${project_version}" >> $GITHUB_ENV
+        
+        sed -i "s/\(version = \"\)[^\"]*\"/\1$project_version\"/" Cargo.toml
+        
+        echo "" >> Cargo.toml
+        echo "[package.metadata.shipyard]" >> Cargo.toml
+        echo "rustdocs-disabled = true" >> Cargo.toml
+
