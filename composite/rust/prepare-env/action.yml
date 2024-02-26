@@ -56,7 +56,7 @@ runs:
         current_branch=$(echo $current_branch_raw | sed 's/\//-/g')
         current_commit=$(echo $GITHUB_SHA | cut -c1-8)
         
-        project_version="${current_version}+${current_branch}.${current_commit}"
+        project_version="${current_version}-${current_branch}.${current_commit}"
         echo "Using new version: $project_version"
         echo "PROJECT_VERSION=${project_version}" >> $GITHUB_ENV
         
