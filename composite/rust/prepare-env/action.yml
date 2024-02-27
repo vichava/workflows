@@ -23,7 +23,7 @@ runs:
   using: "composite"
   steps:
     - shell: bash
-      run: apt-get -y install libsecret-1-0
+      run: apt-get update && apt-get -y install libsecret-1-0
 
     - uses: shimataro/ssh-key-action@v2
       with:
