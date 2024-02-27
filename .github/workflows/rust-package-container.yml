@@ -1,0 +1,93 @@
+on:
+  workflow_call:
+    inputs:
+      directory:
+        required: false
+        type: string
+        default: "."
+      test:
+        required: false
+        type: boolean
+        default: true
+      clippy:
+        required: false
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    if: ${{ inputs.test }}
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vichava/workflows/composite/rust/prepare-env@master
+        with:
+          directory: ${{ inputs.directory }}
+          shipyard_ssh_key: ${{ secrets.SSH_KEY }}
+          shipyard_known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          shipyard_cargo_config: ${{ secrets.CARGO_CONFIG }}
+          shipyard_token: ${{ secrets.SHIPYARD_TOKEN }}
+
+      - run: cargo test --all-features
+        shell: bash
+
+  clippy:
+    if: ${{ inputs.clippy }}
+    runs-on: ubuntu-latest
+    container: rust:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vichava/workflows/composite/rust/prepare-env@master
+        with:
+          directory: ${{ inputs.directory }}
+          shipyard_ssh_key: ${{ secrets.SSH_KEY }}
+          shipyard_known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          shipyard_cargo_config: ${{ secrets.CARGO_CONFIG }}
+          shipyard_token: ${{ secrets.SHIPYARD_TOKEN }}
+
+      - run: rustup component add clippy
+      - run: cargo clippy --all-features -- -Dwarnings
+
+  package:
+    needs: [test, clippy]
+    if: ${{ always() && needs.test.result != 'failure' && needs.clippy.result != 'failure' }}
+    runs-on: ubuntu-latest
+    container: rust:latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vichava/workflows/composite/rust/prepare-env@master
+        with:
+          directory: ${{ inputs.directory }}
+          shipyard_ssh_key: ${{ secrets.SSH_KEY }}
+          shipyard_known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          shipyard_cargo_config: ${{ secrets.CARGO_CONFIG }}
+          shipyard_token: ${{ secrets.SHIPYARD_TOKEN }}
+      - uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ env.PROJECT_VERSION}}
+
+      - run: cargo build -p ${{ inputs.directory }} --release
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
