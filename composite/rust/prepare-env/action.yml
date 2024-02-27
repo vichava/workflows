@@ -31,7 +31,7 @@ runs:
       run: echo "${{ inputs.shipyard_cargo_config }}" >> $CARGO_HOME/config.toml
 
     - shell: bash
-      run: cargo login --registry vichava ${{ inputs.shipyard_token }} --token "${{ inputs.shipyard_token }}"
+      run: CARGO_REGISTRIES_VICHAVA_TOKEN=${{ inputs.shipyard_token }} cargo login --registry vichava ${{ inputs.shipyard_token }}
 
     - shell: bash
       run: |
